@@ -1,10 +1,6 @@
 'use strict';
 
-// utilities
-module.exports.errors = require('./lib/errors');
-module.exports.log = require('./lib/logger');
-module.exports.utils = require('./lib/utils');
-
+module.exports = require('./lib');
 module.exports.Chain = require('./lib/chain');
 module.exports.Block = require('./lib/block');
 module.exports.Transaction = require('./lib/transaction');
