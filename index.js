@@ -11,3 +11,7 @@ module.exports.Node = require('./lib/node');
 module.exports.P2P = require('./lib/p2p');
 module.exports.Reorg = require('./lib/reorg');
 module.exports.Wallet = require('./lib/wallet');
+
+module.exports.deps = {};
+module.exports.deps.levelup = require('levelup');
+module.exports.deps.leveldown = require('leveldown');
