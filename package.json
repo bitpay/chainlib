@@ -25,8 +25,8 @@
     "colors": "^1.0.3",
     "errno": "^0.1.2",
     "jsondiffpatch": "^0.1.31",
-    "leveldown": "git://github.com/rvagg/node-leveldown#657b5c8601804f54dd43d0c647266620632923e7",
-    "levelup": "git://github.com/rvagg/node-levelup#202ee1ff9857edf6e0bb8d2c2784ca0ff2f823f6",
+    "leveldown": "^1.2.2",
+    "levelup": "^1.1.1",
     "lodash": "^3.5.0",
     "memdown": "^1.0.0"
   },
