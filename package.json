@@ -13,7 +13,7 @@
     }
   ],
   "main": "index.js",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "scripts": {
     "test": "NODE_ENV=test mocha --recursive",
     "coverage": "istanbul cover _mocha -- --recursive"
