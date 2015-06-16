@@ -62,8 +62,6 @@ describe('P2P', function() {
       p2p.mempool.on.callCount.should.equal(1);
       p2p.chain.on.callCount.should.equal(1);
       p2p.pool.on.callCount.should.equal(6);
-      p2p.pool.connect.callCount.should.equal(1);
-      p2p.pool.listen.callCount.should.equal(1);
     });
   });
 
@@ -443,9 +441,13 @@ describe('P2P', function() {
       p2p.pool = {
         sendMessage: sinon.spy()
       };
+      p2p.chain = {
+        blockQueue: []
+      }
 
       p2p._onChainAddBlock('block');
       p2p.pool.sendMessage.calledOnce.should.equal(true);
+      p2p.synced.should.equal(true);
     });
   });
 
@@ -507,10 +509,13 @@ describe('P2P', function() {
         sendMessage: function() {
           p2p.chain.getHashes.calledOnce.should.equal(true);
           p2p._buildGetBlocksMessage.calledOnce.should.equal(true);
-          done();
         }
       };
       p2p._getRandomPeer = sinon.stub().returns(peer);
+
+      p2p.on('synced', function() {
+        done();
+      });
 
       p2p._sync();
     });
