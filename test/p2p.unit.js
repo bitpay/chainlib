@@ -5,8 +5,6 @@ var sinon = require('sinon');
 var Mempool = require('../lib/mempool');
 var proxyquire = require('proxyquire');
 
-var EventEmitter = require('events').EventEmitter;
-
 var InventoryStub = {
   TYPE: {
     TX: 1,
@@ -58,10 +56,35 @@ describe('P2P', function() {
       };
 
       p2p.initialize();
-
       p2p.mempool.on.callCount.should.equal(1);
       p2p.chain.on.callCount.should.equal(1);
+      setImmediate(function() {
+        p2p.pool.listen.callCount.should.equal(1);
+      });
       p2p.pool.on.callCount.should.equal(6);
+    });
+    it('will not call listen for peers with "onListen" option', function() {
+      var p2p = new P2P({noListen: true});
+      p2p.pool = {
+        on: sinon.spy(),
+        connect: sinon.spy(),
+        listen: sinon.spy()
+      };
+
+      p2p.db = {
+        mempool: {
+          on: sinon.spy()
+        }
+      };
+
+      p2p.chain = {
+        on: sinon.spy()
+      };
+
+      p2p.initialize();
+      setImmediate(function() {
+        p2p.pool.listen.callCount.should.equal(0);
+      });
     });
   });
 
