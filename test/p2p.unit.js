@@ -86,6 +86,30 @@ describe('P2P', function() {
         p2p.pool.listen.callCount.should.equal(0);
       });
     });
+    it('will not listen with false passed with true default', function() {
+      P2P.NO_LISTEN = true;
+      var p2p = new P2P({noListen: false});
+      p2p.pool = {
+        on: sinon.spy(),
+        connect: sinon.spy(),
+        listen: sinon.spy()
+      };
+
+      p2p.db = {
+        mempool: {
+          on: sinon.spy()
+        }
+      };
+
+      p2p.chain = {
+        on: sinon.spy()
+      };
+
+      p2p.initialize();
+      setImmediate(function() {
+        p2p.pool.listen.callCount.should.equal(0);
+      });
+    });
   });
 
   describe('#sendMessage', function() {
