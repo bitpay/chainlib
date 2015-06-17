@@ -13,10 +13,14 @@
     }
   ],
   "main": "index.js",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "scripts": {
     "test": "NODE_ENV=test mocha --recursive",
     "coverage": "istanbul cover _mocha -- --recursive"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bitpay/chainlib.git"
   },
   "dependencies": {
     "async": "^0.9.0",
