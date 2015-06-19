@@ -34,6 +34,18 @@ describe('P2P', function() {
       should.exist(p2p.pool);
       p2p.ready.should.equal(false);
     });
+
+    it('should save metadata when synced', function(done) {
+      var p2p = new P2P();
+      p2p.chain = {
+        saveMetadata: function() {
+          p2p.chain.lastSavedMetadataThreshold.should.equal(0);
+          done();
+        }
+      }
+
+      p2p.emit('synced');
+    });
   });
 
   describe('#initialize', function() {
@@ -489,7 +501,8 @@ describe('P2P', function() {
         sendMessage: sinon.spy()
       };
       p2p.chain = {
-        blockQueue: []
+        blockQueue: [],
+        saveMetadata: sinon.spy()
       }
 
       p2p._onChainAddBlock('block');
@@ -549,7 +562,8 @@ describe('P2P', function() {
           timestamp: new Date('2015-04-07')
         },
         blockQueue: [],
-        getHashes: sinon.stub().callsArgWith(1, null, ['hash1', 'hash2'])
+        getHashes: sinon.stub().callsArgWith(1, null, ['hash1', 'hash2']),
+        saveMetadata: sinon.spy()
       };
       p2p._buildGetBlocksMessage = sinon.spy();
       var peer = {
@@ -591,7 +605,8 @@ describe('P2P', function() {
           timestamp: new Date()
         },
         blockQueue: [],
-        getHashes: sinon.spy()
+        getHashes: sinon.spy(),
+        saveMetadata: sinon.spy()
       };
       p2p._sync();
       p2p.chain.getHashes.called.should.equal(false);
@@ -604,7 +619,8 @@ describe('P2P', function() {
           timestamp: new Date()
         },
         blockQueue: [],
-        getHashes: sinon.spy()
+        getHashes: sinon.spy(),
+        saveMetadata: sinon.spy()
       };
       p2p._sync();
       p2p.chain.getHashes.called.should.equal(false);
@@ -617,7 +633,8 @@ describe('P2P', function() {
           timestamp: new Date()
         },
         blockQueue: [],
-        getHashes: sinon.stub().callsArgWith(1, null, ['hash1', 'hash2'])
+        getHashes: sinon.stub().callsArgWith(1, null, ['hash1', 'hash2']),
+        saveMetadata: sinon.spy()
       };
       p2p._buildGetBlocksMessage = sinon.spy();
       var peer = {
@@ -640,7 +657,8 @@ describe('P2P', function() {
           timestamp: new Date('2015-04-07')
         },
         blockQueue: [],
-        getHashes: sinon.stub().callsArgWith(1, null, ['hash1', 'hash2'])
+        getHashes: sinon.stub().callsArgWith(1, null, ['hash1', 'hash2']),
+        saveMetadata: sinon.spy()
       };
       p2p._buildGetBlocksMessage = sinon.spy();
       p2p._getRandomPeer = sinon.stub().returns(null);
