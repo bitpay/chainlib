@@ -549,6 +549,48 @@ describe('Chain', function() {
 
       chain.initialize();
     });
+
+    it('if the block\'s prevHash is the tip, then add the block weight to tipWeight', function(done) {
+      var chain = new Chain();
+      chain.cache = {
+        hashes: {
+          '00000000000001b022cc278cd5456f2daff1ddddcbf28614c04b42f6cf8f3529': '000000000000113f49f98e8fd00a7373906b90f7294b12cd12129ab16e6cce67'
+        }
+      };
+
+      chain.getBlockWeight = sinon.stub().callsArgWith(1, null, new BN(10));
+      chain.tip = {
+        hash: '000000000000113f49f98e8fd00a7373906b90f7294b12cd12129ab16e6cce67'
+      };
+      chain.tipWeight = new BN(100);
+
+      chain.getWeight('00000000000001b022cc278cd5456f2daff1ddddcbf28614c04b42f6cf8f3529', function(err, weight) {
+        should.not.exist(err);
+        weight.toString(10).should.equal('110');
+        done();
+      });
+    });
+
+    it('should give an error if getBlockWeight gives an error', function(done) {
+      var chain = new Chain();
+      chain.cache = {
+        hashes: {
+          '00000000000001b022cc278cd5456f2daff1ddddcbf28614c04b42f6cf8f3529': '000000000000113f49f98e8fd00a7373906b90f7294b12cd12129ab16e6cce67'
+        }
+      };
+
+      chain.getBlockWeight = sinon.stub().callsArgWith(1, new Error('error'));
+      chain.tip = {
+        hash: '000000000000113f49f98e8fd00a7373906b90f7294b12cd12129ab16e6cce67'
+      };
+      chain.tipWeight = new BN(100);
+
+      chain.getWeight('00000000000001b022cc278cd5456f2daff1ddddcbf28614c04b42f6cf8f3529', function(err, weight) {
+        should.exist(err);
+        err.message.should.equal('error');
+        done();
+      });
+    });
   });
 
   describe('#getHeightForBlock', function() {
