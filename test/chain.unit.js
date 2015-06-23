@@ -35,7 +35,7 @@ describe('Chain', function() {
         should.exist(chain.tip);
         db.putBlock.callCount.should.equal(1);
         chain.tip.hash.should.equal('genesis');
-        Number(chain.tipWeight.toString(10)).should.equal(0);
+        Number(chain.tip.__weight.toString(10)).should.equal(0);
         done();
       });
       chain.on('error', function(err) {
@@ -59,6 +59,7 @@ describe('Chain', function() {
       };
       var chain = new Chain({db: db, genesis: {hash: 'genesis'}});
       chain.getHeightForBlock = sinon.stub().callsArgWith(1, null, 10);
+      chain.getWeight = sinon.stub().callsArgWith(1, null, new BN(50));
       chain.on('ready', function() {
         should.exist(chain.tip);
         db.putBlock.callCount.should.equal(0);
@@ -83,6 +84,7 @@ describe('Chain', function() {
       };
       var chain = new Chain({db: db});
       chain.getHeightForBlock = sinon.stub().callsArgWith(1, null, 10);
+      chain.getWeight = sinon.stub().callsArgWith(1, null, new BN(50));
       chain.buildGenesisBlock = sinon.stub();
       chain.initialize();
       chain.buildGenesisBlock.calledOnce.should.equal(true);
@@ -154,28 +156,6 @@ describe('Chain', function() {
       });
       chain.initialize();
     });
-
-    it('emit error from getHeightForBlock', function(done) {
-      var db = {};
-      db.getMetadata = sinon.stub().callsArgWith(0, null, {tip: 'block2', tipWeight: 2});
-      db.putBlock = sinon.stub().callsArg(1);
-      db.putMetadata = sinon.stub().callsArg(1);
-      db.getBlock = sinon.stub().callsArgWith(1, null, {hash: 'block2', prevHash: 'block1'});
-      db.getTransactionsFromBlock = sinon.stub();
-      db.getMerkleRoot = sinon.stub();
-      db.mempool = {
-        on: sinon.spy()
-      };
-      var chain = new Chain({db: db, genesis: {hash: 'genesis'}});
-      chain.getHeightForBlock = sinon.stub().callsArgWith(1, new Error('heightError'));
-      chain.on('error', function(err) {
-        should.exist(err);
-        err.message.should.equal('heightError');
-        done();
-      });
-      chain.initialize();
-    });
-
   });
 
   describe('#addBlock', function() {
@@ -290,8 +270,11 @@ describe('Chain', function() {
       chain._checkExisting = sinon.stub().callsArg(1);
       chain._validateMerkleRoot = sinon.stub();
       chain.tip = prevBlock;
-      chain.tipWeight = new BN(1, 10);
-      chain.getWeight = sinon.stub().callsArgWith(1, null, new BN(2, 10));
+      chain.tip.__weight = new BN(1, 10);
+      chain._updateWeight = function(block, callback) {
+        block.__weight = new BN(2, 10);
+        callback();
+      };
       chain.saveMetadata = sinon.spy();
 
       chain._processBlock(block, function(err) {
@@ -317,8 +300,11 @@ describe('Chain', function() {
       chain._checkExisting = sinon.stub().callsArg(1);
       chain._validateMerkleRoot = sinon.stub();
       chain.tip = prevBlock;
-      chain.tipWeight = new BN(2, 10);
-      chain.getWeight = sinon.stub().callsArgWith(1, null, new BN(1, 10));
+      chain.tip.__weight = new BN(2, 10);
+      chain._updateWeight = function(block, callback) {
+        block.__weight = new BN(1, 10);
+        callback();
+      };
       chain.saveMetadata = sinon.spy();
 
       chain._processBlock(block, function(err) {
@@ -348,8 +334,11 @@ describe('Chain', function() {
       chain._checkExisting = sinon.stub().callsArg(1);
       chain._validateMerkleRoot = sinon.stub();
       chain.tip = prevBlock;
-      chain.tipWeight = new BN(1, 10);
-      chain.getWeight = sinon.stub().callsArgWith(1, null, new BN(2, 10));
+      chain.tip.__weight = new BN(1, 10);
+      chain._updateWeight = function(block, callback) {
+        block.__weight = new BN(2, 10);
+        callback();
+      };
       chain.saveMetadata = sinon.spy();
       var reorgStub = sinon.stub(Reorg.prototype, 'go').callsArg(0);
 
@@ -367,35 +356,93 @@ describe('Chain', function() {
 
   describe('#_updateTip', function() {
 
-    it('should handle error from getWeight', function() {
-      var chain = new Chain();
-      chain.getWeight = sinon.stub().callsArgWith(1, new Error('test error'));
-      var block = {};
-      block.hash = 'a84ca63feb41491d6a2032820cd078efce6f6c0344fe285c7c8bf77ae647718e';
+    var chain = new Chain();
+    var tip = chain.tip = {
+      hash: 'tiphash',
+      __weight: new BN(50),
+      __height: 10
+    };
+    chain._validateBlock = sinon.stub().callsArg(1);
+    chain.saveMetadata = sinon.spy();
+    chain.db = {
+      _onChainAddBlock: sinon.stub().callsArg(1)
+    };
+
+    before(function() {
+      sinon.stub(Reorg.prototype, 'go').callsArg(0)
+    });
+
+    after(function() {
+      Reorg.prototype.go.restore();
+    });
+
+    it('should add block to main chain if prevhash is tip hash', function(done) {
+      var block = {
+        prevHash: 'tiphash',
+        __weight: new BN(60),
+        hash: 'hash'
+      };
       chain._updateTip(block, function(err) {
-        should.exist(err);
-        err.message.should.equal('test error');
+        should.not.exist(err);
+        chain.tip.hash.should.equal('hash');
+        chain.tip.__height.should.equal(11);
+        chain.tip = tip;
+        done();
+      });
+    });
+
+    it('should do a reorg if weight is greater than tip and prevhash is not tip hash', function(done) {
+      var block = {
+        prevHash: 'otherhash',
+        __weight: new BN(60),
+        hash: 'hash'
+      };
+      chain._updateTip(block, function(err) {
+        should.not.exist(err);
+        Reorg.prototype.go.calledOnce.should.equal(true);
+        done();
+      });
+    });
+
+    it('should add block to forked chain if weight is not greater than tip weight', function(done) {
+      var block = {
+        prevHash: 'otherhash',
+        __weight: new BN(40),
+        hash: 'forkhash'
+      };
+
+      chain.on('forkblock', function(block) {
+        block.hash.should.equal('forkhash');
+        done();
+      });
+
+      chain._updateTip(block, function(err) {
+        should.not.exist(err);
       });
     });
 
   });
 
-  describe('#_updateWeightCache', function() {
-    it('should update cache', function(done) {
-      /* jshint sub:true */
-      var chain = new Chain();
-      chain.getBlockWeight = sinon.stub().callsArgWith(1, null, 5);
-      chain._updateWeightCache({hash: 'hash'}, function(err) {
+  describe('#_updateWeight', function() {
+    var chain = new Chain();
+    chain.getWeight = sinon.stub().callsArgWith(1, null, new BN('1a', 'hex'));
+    chain.db = {
+      _updateWeight: sinon.stub().callsArg(2)
+    };
+
+    it('should add the weight to the block and update the db', function(done) {
+      var block = {};
+      chain._updateWeight(block, function(err) {
         should.not.exist(err);
-        chain.cache.weights['hash'].should.equal(5);
+        block.__weight.toString(16).should.equal('1a');
         done();
       });
     });
-    it('should log error but not fail', function(done) {
-      var chain = new Chain();
-      chain.getBlockWeight = sinon.stub().callsArgWith(1, new Error('error'));
-      chain._updateWeightCache({hash: 'hash'}, function(err) {
-        should.not.exist(err);
+
+    it('should give an error if getWeight gives an error', function(done) {
+      chain.getWeight = sinon.stub().callsArgWith(1, new Error('error'));
+      chain._updateWeight({}, function(err) {
+        should.exist(err);
         done();
       });
     });
@@ -507,85 +554,39 @@ describe('Chain', function() {
   });
 
   describe('#getWeight', function() {
-    it('should sum the weight of each block in the chain', function(done) {
-      var db = new DB({store: memdown});
-      var genesisBlock = new Block(chainData[0]);
+    var chain = new Chain();
+    chain.db = {
+      getPrevHash: sinon.stub().callsArgWith(1, null, 'prevhash'),
+      getWeight: sinon.stub().callsArgWith(1, null, new BN(50))
+    };
+    chain.getBlockWeight = sinon.stub().callsArgWith(1, null, new BN(5));
+    chain.tip = {
+      hash: 'tiphash',
+      __weight: new BN(70)
+    };
 
-      var chain = new Chain({
-        db: db,
-        genesis: genesisBlock
-      });
-
-      chain._validateMerkleRoot = sinon.stub();
-
-      var block1 = new Block(chainData[1]);
-      var block2 = new Block(chainData[2]);
-
-      chain.on('ready', function() {
-        async.series([
-          function(next) {
-            chain._processBlock(block1, next);
-          },
-          function(next) {
-            chain._processBlock(block2, next);
-          }
-        ], function(err) {
-
-          should.not.exist(err);
-
-          chain.getWeight(block2.hash, function(err, weight) {
-            should.not.exist(err);
-            should.exist(weight);
-            weight.toString(10).should.equal('3');
-            done();
-          });
-        });
-      });
-
-      chain.on('error', function(err) {
+    it('should add the base weight to the individual block weight', function(done) {
+      chain.getWeight('block', function(err, weight) {
         should.not.exist(err);
-        done();
-      });
-
-      chain.initialize();
-    });
-
-    it('if the block\'s prevHash is the tip, then add the block weight to tipWeight', function(done) {
-      var chain = new Chain();
-      chain.cache = {
-        hashes: {
-          '00000000000001b022cc278cd5456f2daff1ddddcbf28614c04b42f6cf8f3529': '000000000000113f49f98e8fd00a7373906b90f7294b12cd12129ab16e6cce67'
-        }
-      };
-
-      chain.getBlockWeight = sinon.stub().callsArgWith(1, null, new BN(10));
-      chain.tip = {
-        hash: '000000000000113f49f98e8fd00a7373906b90f7294b12cd12129ab16e6cce67'
-      };
-      chain.tipWeight = new BN(100);
-
-      chain.getWeight('00000000000001b022cc278cd5456f2daff1ddddcbf28614c04b42f6cf8f3529', function(err, weight) {
-        should.not.exist(err);
-        weight.toString(10).should.equal('110');
+        weight.toString(10).should.equal('55');
         done();
       });
     });
 
-    it('should give an error if getBlockWeight gives an error', function(done) {
-      var chain = new Chain();
-      chain.cache = {
-        hashes: {
-          '00000000000001b022cc278cd5456f2daff1ddddcbf28614c04b42f6cf8f3529': '000000000000113f49f98e8fd00a7373906b90f7294b12cd12129ab16e6cce67'
-        }
-      };
+    it('it should use the chain tip __weight if it is the prevhash', function(done) {
+      chain.db.getPrevHash = sinon.stub().callsArgWith(1, null, 'tiphash');
 
+      chain.getWeight('block', function(err, weight) {
+        should.not.exist(err);
+        weight.toString(10).should.equal('75');
+        done();
+      });
+    });
+
+    it('should give an error if one of the waterfall functions gives an error', function(done) {
       chain.getBlockWeight = sinon.stub().callsArgWith(1, new Error('error'));
-      chain.tip = {
-        hash: '000000000000113f49f98e8fd00a7373906b90f7294b12cd12129ab16e6cce67'
-      };
-      chain.tipWeight = new BN(100);
 
-      chain.getWeight('00000000000001b022cc278cd5456f2daff1ddddcbf28614c04b42f6cf8f3529', function(err, weight) {
+      chain.getWeight('block', function(err, weight) {
         should.exist(err);
         err.message.should.equal('error');
         done();

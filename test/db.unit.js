@@ -3,6 +3,7 @@
 var should = require('chai').should();
 var sinon = require('sinon');
 var bitcore = require('bitcore');
+var BN = bitcore.crypto.BN;
 var BufferReader = bitcore.encoding.BufferReader;
 var BufferWriter = bitcore.encoding.BufferWriter;
 var DB = require('../lib/db');
@@ -502,6 +503,33 @@ describe('DB', function() {
     });
   });
 
+  describe('#getWeight', function() {
+    it('should call get with the right key and return a BN', function(done) {
+      var db = new DB({store: memdown});
+      db.store = {
+        get: sinon.stub().callsArgWith(1, null, '1c')
+      };
+      db.getWeight('block', function(err, weight) {
+        should.not.exist(err);
+        db.store.get.args[0][0].should.equal('wt-block');
+        weight.toString(16).should.equal('1c');
+        done();
+      });
+    });
+
+    it('should give an error if the store gives an error', function(done) {
+      var db = new DB({store: memdown});
+      db.store = {
+        get: sinon.stub().callsArgWith(1, new Error('storeError'))
+      };
+      db.getWeight('block', function(err, weight) {
+        should.exist(err);
+        err.message.should.equal('storeError');
+        done();
+      });
+    });
+  });
+
   describe('#_onChainAddBlock', function() {
     var db = new DB({store: memdown});
     db._updateTransactions = sinon.stub().callsArgWith(2, null, ['1a', '1b']);
@@ -691,6 +719,25 @@ describe('DB', function() {
         should.not.exist(err);
         db.store.put.args[0][0].should.equal('ph-two');
         db.store.put.args[0][1].should.equal('one');
+        done();
+      });
+    });
+  });
+
+  describe('#_updateWeight', function() {
+    it('should call put with the correct key and value', function(done) {
+      var db = new DB({store: memdown});
+      db.store = {
+        put: sinon.stub().callsArg(2)
+      };
+      var block = {
+        hash: 'two',
+        prevHash: 'one'
+      };
+      db._updateWeight('hash', new BN('1c', 'hex'), function(err) {
+        should.not.exist(err);
+        db.store.put.args[0][0].should.equal('wt-hash');
+        db.store.put.args[0][1].should.equal('1c');
         done();
       });
     });
