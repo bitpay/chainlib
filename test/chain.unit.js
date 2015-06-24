@@ -564,6 +564,18 @@ describe('Chain', function() {
       hash: 'tiphash',
       __weight: new BN(70)
     };
+    chain.genesis = {
+      hash: 'genesishash'
+    };
+    chain.genesisWeight = new BN(0);
+
+    it('should return the genesis weight if the block hash is the genesis hash', function(done) {
+      chain.getWeight('genesishash', function(err, weight) {
+        should.not.exist(err);
+        weight.toString(10).should.equal('0');
+        done();
+      });
+    });
 
     it('should add the base weight to the individual block weight', function(done) {
       chain.getWeight('block', function(err, weight) {
@@ -579,6 +591,16 @@ describe('Chain', function() {
       chain.getWeight('block', function(err, weight) {
         should.not.exist(err);
         weight.toString(10).should.equal('75');
+        done();
+      });
+    });
+
+    it('it should use the genesis __weight if prevhash is genesis hash', function(done) {
+      chain.db.getPrevHash = sinon.stub().callsArgWith(1, null, 'genesishash');
+
+      chain.getWeight('block', function(err, weight) {
+        should.not.exist(err);
+        weight.toString(10).should.equal('5');
         done();
       });
     });
