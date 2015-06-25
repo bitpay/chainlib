@@ -221,7 +221,8 @@ describe('P2P', function() {
       ];
       p2p.messages.GetData.reset();
       var inventory = ourBlocks.concat(newBlocks);
-      p2p.mempool.blocks = ourBlocks;
+      p2p.mempool.addBlock(ourBlocks[0]);
+      p2p.mempool.addBlock(ourBlocks[1]);
       p2p._onPeerInv(peerStub, {inventory: inventory});
       p2p.messages.GetData.called.should.equal(true);
       var filtered = p2p.messages.GetData.args[0][0];

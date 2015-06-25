@@ -119,21 +119,17 @@ describe('MemPool', function() {
   describe('#addBlock', function() {
     it('should add a block', function() {
       var mempool = new MemPool();
-      mempool.addBlock({hash: 'block'});
-      mempool.blocks.length.should.equal(1);
-      mempool.blocks[0].hash.should.equal('block');
+      var block = {hash: 'block'};
+      mempool.addBlock(block);
+      mempool.blocks['block'].should.equal(block);
     });
   });
   describe('#hasBlock', function() {
     var mempool = new MemPool();
-    mempool.blocks = [
-      {
-        hash: 'block1'
-      },
-      {
-        hash: 'block2'
-      }
-    ];
+    mempool.blocks = {
+      'block1': 'block1',
+      'block2': 'block2'
+    };
 
     it('should return true if the block exists', function() {
       var result = mempool.hasBlock('block1');
@@ -146,17 +142,14 @@ describe('MemPool', function() {
   });
   describe('#getBlock', function() {
     var mempool = new MemPool();
-    mempool.blocks = [
-      {
-        hash: 'block1'
-      },
-      {
-        hash: 'block2'
-      }
-    ];
+    mempool.blocks = {
+      'block1': 'block1',
+      'block2': 'block2'
+    };
+
     it('should return the block if it exists', function() {
       var block = mempool.getBlock('block2');
-      block.hash.should.equal('block2');
+      block.should.equal('block2');
     });
     it('should return null if the block does not exist', function() {
       var block = mempool.getBlock('block3');
@@ -172,8 +165,7 @@ describe('MemPool', function() {
       mempool.addBlock(block1);
       mempool.addBlock(block2);
       mempool.removeBlock(block1.hash);
-      mempool.blocks.length.should.equal(1);
-      mempool.blocks[0].should.equal(block2);
+      should.equal(mempool.blocks[block1.hash], undefined);
     });
   });
 
@@ -183,8 +175,9 @@ describe('MemPool', function() {
       var block = {hash: 'block'}
       mempool.addBlock(block);
       var blocks = mempool.getBlocks();
-      blocks.length.should.equal(1);
-      mempool.blocks[0].should.equal(block);
+      Object.keys(blocks).length.should.equal(1);
+      var key = Object.keys(blocks)[0];
+      mempool.blocks[key].should.equal(block);
     });
   });
 });

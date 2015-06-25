@@ -360,6 +360,7 @@ describe('DB', function() {
 
       // check
       block.merkleRoot.should.deep.equal(new Buffer(Array(32)));
+      block.__transactions.should.deep.equal(['faketx', 'faketx2']);
       var br = new BufferReader(block.data);
       var count = br.readVarintNum();
       count.should.equal(2);
@@ -370,14 +371,14 @@ describe('DB', function() {
     });
   });
   describe('#getTransactionsFromBlock', function() {
-    it('should return false if no transactions', function() {
+    it('should return [] if no transactions', function() {
       var db = new DB({store: memdown});
       var block = new Block(blockData);
       block.data = new Buffer(Array(0));
       var txs = db.getTransactionsFromBlock(block);
       txs.should.deep.equal([]);
     });
-    it('read number of transactions correctly', function() {
+    it('get transactions from block data', function() {
       var db = new DB({store: memdown});
       var stub = sinon.stub(db.Transaction, 'fromBufferReader').returns({});
       var block = new Block(blockData);
@@ -387,6 +388,16 @@ describe('DB', function() {
       var txs = db.getTransactionsFromBlock(block);
       txs.length.should.equal(2);
       stub.restore();
+    });
+    it('should return the cached __transactions if it exists', function() {
+      var db = new DB({store: memdown});
+      var block = {
+        __transactions: ['tx1', 'tx2'],
+        data: 'data'
+      };
+
+      var txs = db.getTransactionsFromBlock(block);
+      txs.should.deep.equal(['tx1', 'tx2']);
     });
   });
   describe('#getTransaction', function() {
