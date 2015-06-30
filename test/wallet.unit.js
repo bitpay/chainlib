@@ -104,6 +104,32 @@ describe('Base Wallet', function() {
       });
     });
 
+    it('will remove existing utxos before updating', function(done) {
+      var wallet = new Wallet({
+        xprivkey: xprivkey
+      });
+      wallet.utxos = [
+        {
+          txId : '8a6ee28c775d4bf5924623d30202a005fa9ab2c4d3383808706f3308655d5b8b',
+          outputIndex : 0,
+          address : 'mv7aNQh6soUFysgh1Ax82BKBTyf1V4qWha',
+          script : '76a914089acaba6af8b2b4fb4bed3b747ab1e4e60b496588ac',
+          satoshis : 20000
+        }
+      ];
+      wallet.addresses = {
+        mv7aNQh6soUFysgh1Ax82BKBTyf1V4qWha: ''
+      };
+      wallet.updateUnspentOutputs(function(err) {
+        should.not.exist(err);
+        wallet.utxos.length.should.equal(2);
+        var address = Object.keys(wallet.addresses)[0];
+        wallet.utxos[0].address.should.equal(address);
+        wallet.utxos[0].txId.should.equal('a0a08e397203df68392ee95b3f08b0b3b3e2101410a38d46ae0874f74846f2e1');
+        done();
+      });
+    });
+
   });
 
   describe('#selectUnspentOutputs', function() {
