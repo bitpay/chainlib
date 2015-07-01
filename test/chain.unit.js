@@ -11,6 +11,7 @@ var bitcore = require('bitcore');
 var BN = bitcore.crypto.BN;
 var Reorg = require('../lib/reorg');
 var memdown = require('memdown');
+var levelup = require('levelup');
 
 var chainData = require('./data/chain.json');
 
@@ -236,12 +237,10 @@ describe('Chain', function() {
       var block = {};
       block.validate = sinon.stub().callsArg(1);
       var db = new DB({store: memdown});
-      db.getBlock = sinon.stub().callsArg(1);
-      db.getBlock.onCall(1).callsArgWith(1, null, {height: 1});
+      db.getBlock = sinon.stub().callsArgWith(1, new levelup.errors.NotFoundError());
       db.putBlock = sinon.stub().callsArgWith(1, new Error('disk failure'));
 
       var chain = new Chain({db: db});
-      chain._checkExisting = sinon.stub().callsArg(1);
       chain._validateMerkleRoot = sinon.stub();
       chain._processBlock(block, function(err) {
         should.exist(err);
@@ -261,13 +260,45 @@ describe('Chain', function() {
       block.data = 'block2';
       block.validate = sinon.stub().callsArg(1);
       var db = {};
-      db.getBlock = sinon.stub().callsArg(1);
-      db.getBlock.onCall(1).callsArgWith(1, null, prevBlock);
+      db.getBlock = sinon.stub().callsArgWith(1, new levelup.errors.NotFoundError());
       db.putBlock = sinon.stub().callsArg(1);
       db._onChainAddBlock = sinon.stub().callsArg(1);
 
       var chain = new Chain({db: db});
-      chain._checkExisting = sinon.stub().callsArg(1);
+      chain._validateMerkleRoot = sinon.stub();
+      chain.tip = prevBlock;
+      chain.tip.__weight = new BN(1, 10);
+      chain._updateWeight = function(block, callback) {
+        block.__weight = new BN(2, 10);
+        callback();
+      };
+      chain.saveMetadata = sinon.spy();
+
+      chain._processBlock(block, function(err) {
+        should.not.exist(err);
+        should.exist(chain.tip);
+        db.putBlock.callCount.should.equal(1);
+        chain.tip.data.should.equal('block2');
+        done();
+      });
+    });
+
+    it('should not write the block to disk if it already exists', function(done) {
+      var prevBlock = {
+        hash: 'oldtiphash',
+        height: 0
+      };
+      var block = {};
+      block.hash = 'a84ca63feb41491d6a2032820cd078efce6f6c0344fe285c7c8bf77ae647718e';
+      block.prevHash = 'oldtiphash';
+      block.data = 'block2';
+      block.validate = sinon.stub().callsArg(1);
+      var db = {};
+      db.getBlock = sinon.stub().callsArg(1);
+      db.putBlock = sinon.stub().callsArg(1);
+      db._onChainAddBlock = sinon.stub().callsArg(1);
+
+      var chain = new Chain({db: db});
       chain._validateMerkleRoot = sinon.stub();
       chain.tip = prevBlock;
       chain.tip.__weight = new BN(1, 10);
@@ -281,6 +312,7 @@ describe('Chain', function() {
         should.not.exist(err);
         should.exist(chain.tip);
         chain.tip.data.should.equal('block2');
+        db.putBlock.callCount.should.equal(0);
         done();
       });
     });
@@ -293,11 +325,9 @@ describe('Chain', function() {
       block.validate = sinon.stub().callsArg(1);
       var db = {};
       db.getBlock = sinon.stub().callsArg(1);
-      db.getBlock.onCall(1).callsArgWith(1, null, prevBlock);
       db.putBlock = sinon.stub().callsArg(1);
 
       var chain = new Chain({db: db});
-      chain._checkExisting = sinon.stub().callsArg(1);
       chain._validateMerkleRoot = sinon.stub();
       chain.tip = prevBlock;
       chain.tip.__weight = new BN(2, 10);
@@ -327,11 +357,9 @@ describe('Chain', function() {
       block.validate = sinon.stub().callsArg(1);
       var db = {};
       db.getBlock = sinon.stub().callsArg(1);
-      db.getBlock.onCall(1).callsArgWith(1, null, prevBlock);
       db.putBlock = sinon.stub().callsArg(1);
 
       var chain = new Chain({db: db});
-      chain._checkExisting = sinon.stub().callsArg(1);
       chain._validateMerkleRoot = sinon.stub();
       chain.tip = prevBlock;
       chain.tip.__weight = new BN(1, 10);
