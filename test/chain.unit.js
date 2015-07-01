@@ -171,7 +171,7 @@ describe('Chain', function() {
   });
 
   describe('#_processBlockQueue', function() {
-    it('should call _processBlock for all blocks in the queue', function(done) {
+    it('should call _processBlock for all blocks in the queue and emit queueprocessed when done', function(done) {
       var count = 0;
 
       var blocks = [
@@ -179,13 +179,17 @@ describe('Chain', function() {
         ['block2', sinon.spy()],
         ['block3', function(err) {
           should.not.exist(err);
-          blocks[0][1].calledOnce.should.equal(true);
-          blocks[1][1].calledOnce.should.equal(true);
-          done();
         }]
       ];
       var chain = new Chain();
-      chain._processBlock = sinon.stub().callsArg(1);
+      chain.on('queueprocessed', function() {
+        blocks[0][1].calledOnce.should.equal(true);
+        blocks[1][1].calledOnce.should.equal(true);
+        done();
+      });
+      chain._processBlock = function(block, callback) {
+        setTimeout(callback, 1);
+      };
       chain.addBlock(blocks[0][0], blocks[0][1]);
       chain.addBlock(blocks[1][0], blocks[1][1]);
       chain.addBlock(blocks[2][0], blocks[2][1]);

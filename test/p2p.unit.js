@@ -69,7 +69,7 @@ describe('P2P', function() {
 
       p2p.initialize();
       p2p.mempool.on.callCount.should.equal(1);
-      p2p.chain.on.callCount.should.equal(1);
+      p2p.chain.on.callCount.should.equal(2);
       setImmediate(function() {
         p2p.pool.listen.callCount.should.equal(1);
       });
@@ -491,7 +491,7 @@ describe('P2P', function() {
   });
 
   describe('#_onChainAddBlock', function() {
-    it('should send inventory with block to peers', function() {
+    it('should send inventory with block to peers if synced', function() {
       var p2p = new P2P();
       p2p.messages = {
         Inventory: {
@@ -504,11 +504,40 @@ describe('P2P', function() {
       p2p.chain = {
         blockQueue: [],
         saveMetadata: sinon.spy()
-      }
+      };
+      p2p.synced = true;
 
       p2p._onChainAddBlock('block');
       p2p.pool.sendMessage.calledOnce.should.equal(true);
-      p2p.synced.should.equal(true);
+    });
+
+    it('should not send message if not synced', function() {
+      var p2p = new P2P();
+      p2p.pool = {
+        sendMessage: sinon.spy()
+      };
+
+      p2p._onChainAddBlock('block');
+      p2p.pool.sendMessage.callCount.should.equal(0);
+    });
+  });
+
+  describe('#_onChainQueueProcessed', function() {
+    it('should call _sync if p2p is not synced', function() {
+      var p2p = new P2P();
+      p2p._sync = sinon.spy();
+
+      p2p._onChainQueueProcessed();
+      p2p._sync.callCount.should.equal(1);
+    });
+
+    it('should not call _sync if p2p is synced', function() {
+      var p2p = new P2P();
+      p2p._sync = sinon.spy();
+      p2p.synced = true;
+
+      p2p._onChainQueueProcessed();
+      p2p._sync.callCount.should.equal(0);
     });
   });
 
@@ -562,80 +591,7 @@ describe('P2P', function() {
         tip: {
           timestamp: new Date('2015-04-07')
         },
-        blockQueue: [],
-        getHashes: sinon.stub().callsArgWith(1, null, ['hash1', 'hash2']),
-        saveMetadata: sinon.spy()
-      };
-      p2p._buildGetBlocksMessage = sinon.spy();
-      var peer = {
-        sendMessage: function() {
-          p2p.chain.getHashes.calledOnce.should.equal(true);
-          p2p._buildGetBlocksMessage.calledOnce.should.equal(true);
-        }
-      };
-      p2p._getRandomPeer = sinon.stub().returns(peer);
-
-      p2p.on('synced', function() {
-        done();
-      });
-
-      p2p._sync();
-    });
-
-    it('should emit an error if getHashes gives an error', function(done) {
-      var p2p = new P2P();
-      p2p.chain = {
-        tip: {
-          timestamp: new Date('2015-04-07')
-        },
-        blockQueue: [],
-        getHashes: sinon.stub().callsArgWith(1, new Error('error'))
-      };
-      p2p.on('error', function(err) {
-        should.exist(err);
-        err.message.should.equal('error');
-        done();
-      });
-      p2p._sync();
-    });
-
-    it('should do nothing if chain tip is new', function() {
-      var p2p = new P2P();
-      p2p.chain = {
-        tip: {
-          timestamp: new Date()
-        },
-        blockQueue: [],
-        getHashes: sinon.spy(),
-        saveMetadata: sinon.spy()
-      };
-      p2p._sync();
-      p2p.chain.getHashes.called.should.equal(false);
-    });
-
-    it('should do nothing if blockQueue is not empty', function() {
-      var p2p = new P2P();
-      p2p.chain = {
-        tip: {
-          timestamp: new Date()
-        },
-        blockQueue: [],
-        getHashes: sinon.spy(),
-        saveMetadata: sinon.spy()
-      };
-      p2p._sync();
-      p2p.chain.getHashes.called.should.equal(false);
-    });
-
-    it('should create and send a getblocks if chain tip is new but forceSync is true', function(done) {
-      var p2p = new P2P();
-      p2p.chain = {
-        tip: {
-          timestamp: new Date()
-        },
-        blockQueue: [],
-        getHashes: sinon.stub().callsArgWith(1, null, ['hash1', 'hash2']),
-        saveMetadata: sinon.spy()
+        getHashes: sinon.stub().callsArgWith(1, null, ['hash1', 'hash2'])
       };
       p2p._buildGetBlocksMessage = sinon.spy();
       var peer = {
@@ -647,9 +603,24 @@ describe('P2P', function() {
       };
       p2p._getRandomPeer = sinon.stub().returns(peer);
 
-      p2p._sync(true);
+      p2p._sync();
     });
 
+    it('should emit an error if getHashes gives an error', function(done) {
+      var p2p = new P2P();
+      p2p.chain = {
+        tip: {
+          timestamp: new Date('2015-04-07')
+        },
+        getHashes: sinon.stub().callsArgWith(1, new Error('error'))
+      };
+      p2p.on('error', function(err) {
+        should.exist(err);
+        err.message.should.equal('error');
+        done();
+      });
+      p2p._sync();
+    });
 
     it('should not send message if no peers are connected', function() {
       var p2p = new P2P();
@@ -664,6 +635,55 @@ describe('P2P', function() {
       p2p._buildGetBlocksMessage = sinon.spy();
       p2p._getRandomPeer = sinon.stub().returns(null);
       p2p._sync();
+    });
+
+    it('should emit synced if tip is recent and p2p is not already synced', function(done) {
+      var p2p = new P2P();
+      p2p.chain = {
+        tip: {
+          timestamp: new Date()
+        },
+        getHashes: sinon.stub().callsArgWith(1, null, ['hash1', 'hash2']),
+        saveMetadata: sinon.spy()
+      };
+      p2p._buildGetBlocksMessage = sinon.spy();
+      var peer = {
+        sendMessage: sinon.spy()
+      };
+      p2p._getRandomPeer = sinon.stub().returns(peer);
+
+      p2p.once('synced', function() {
+        done();
+      });
+
+      p2p._sync();
+      p2p.synced.should.equal(true);
+    });
+
+    it('should emit synced after syncTimeout if the tip has not changed by then', function(done) {
+      var p2p = new P2P({
+        syncTimeout: 10
+      });
+      p2p.chain = {
+        tip: {
+          timestamp: new Date('2015-07-01'),
+          hash: 'hash'
+        },
+        getHashes: sinon.stub().callsArgWith(1, null, ['hash1', 'hash2']),
+        saveMetadata: sinon.spy()
+      };
+      p2p._buildGetBlocksMessage = sinon.spy();
+      var peer = {
+        sendMessage: sinon.spy()
+      };
+      p2p._getRandomPeer = sinon.stub().returns(peer);
+
+      p2p.once('synced', function() {
+        done();
+      });
+
+      p2p._sync();
+      p2p.synced.should.equal(false);
     });
   });
 
