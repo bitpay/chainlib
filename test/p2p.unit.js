@@ -162,6 +162,7 @@ describe('P2P', function() {
     p2p.messages = {
       GetData: sinon.spy()
     };
+    p2p.ignoreTransactions = false;
     var peerStub = {
       sendMessage: sinon.spy()
     };

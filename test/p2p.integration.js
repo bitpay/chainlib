@@ -99,6 +99,7 @@ describe('P2P Integration test', function() {
 
     node1 = createNode1();
     node1.on('ready', function() {
+      node1.p2p.ignoreTransactions = false;
       node1Ready = true;
       if(node2Ready) {
         done();
@@ -111,6 +112,7 @@ describe('P2P Integration test', function() {
 
     node2 = createNode2();
     node2.on('ready', function() {
+      node2.p2p.ignoreTransactions = false;
       node2Ready = true;
       if(node1Ready) {
         done();
