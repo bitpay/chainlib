@@ -42,8 +42,7 @@ describe('P2P', function() {
           p2p.chain.lastSavedMetadataThreshold.should.equal(0);
           done();
         }
-      }
-
+      };
       p2p.emit('synced');
     });
   });
@@ -121,6 +120,17 @@ describe('P2P', function() {
       setImmediate(function() {
         p2p.pool.listen.callCount.should.equal(0);
       });
+    });
+  });
+
+  describe('#startSync', function() {
+    it('will set disableSync to false and call _sync()', function() {
+      var p2p = new P2P();
+      p2p.disableSync = true;
+      p2p._sync = sinon.stub();
+      p2p.startSync();
+      p2p._sync.callCount.should.equal(1);
+      p2p.disableSync.should.equal(false);
     });
   });
 
@@ -585,6 +595,11 @@ describe('P2P', function() {
   });
 
   describe('#_sync', function() {
+    it('will immediatly return false if sync is disabled', function() {
+      var p2p = new P2P();
+      p2p.disableSync = true;
+      p2p._sync().should.equal(false);
+    });
     it('should create and send a getblocks message using the hashes from the chain', function(done) {
       var p2p = new P2P();
       p2p.chain = {
