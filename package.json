@@ -13,7 +13,7 @@
     }
   ],
   "main": "index.js",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "scripts": {
     "test": "NODE_ENV=test mocha --recursive",
     "coverage": "istanbul cover _mocha -- --recursive"
@@ -24,8 +24,8 @@
   },
   "dependencies": {
     "async": "^0.9.0",
-    "bitcore": "^0.12.5",
-    "bitcore-p2p": "^0.14.0",
+    "bitcore": "^0.13.0",
+    "bitcore-p2p": "^0.15.1",
     "colors": "^1.0.3",
     "errno": "^0.1.2",
     "jsondiffpatch": "^0.1.31",
